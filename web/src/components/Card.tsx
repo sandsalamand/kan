@@ -195,7 +195,7 @@ export default function Card({ card, board, isDragging = false, isPlaceholder = 
       {...listeners}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      title={isCompact ? card.alias : undefined}
+      title={isCompact ? card.title : undefined}
       className={`group relative bg-white dark:bg-gray-700 rounded-lg ${isCompact ? 'px-2 py-1.5' : 'p-3'} shadow-sm border border-gray-100 dark:border-gray-600 ${isSlim ? 'cursor-default' : 'cursor-pointer'} hover:shadow-md transition-shadow animate-card-enter ${
         isDragging ? 'shadow-lg rotate-2' : ''
       } ${isHighlighted ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-200 dark:ring-offset-gray-800' : ''}`}
@@ -339,13 +339,6 @@ export default function Card({ card, board, isDragging = false, isPlaceholder = 
                 )
               )}
             </h3>
-          )}
-
-          {/* Alias (regular mode only) */}
-          {!isCompact && (
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              <span className="font-mono">{card.alias}</span>
-            </div>
           )}
         </div>
 

@@ -528,11 +528,6 @@ export default function Column({
                 {activeCard && (
                   <>
                     <h3 className={`font-medium text-blue-400 dark:text-blue-300 ${isCompact ? 'text-xs' : 'text-sm'}`}>{activeCard.title}</h3>
-                    {!isCompact && (
-                      <div className="flex items-center justify-between mt-2 text-xs text-blue-300 dark:text-blue-400">
-                        <span className="font-mono">{activeCard.alias}</span>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
