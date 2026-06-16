@@ -119,7 +119,6 @@ func TestCardToJsonCopiesAllFields(t *testing.T) {
 		Parent:          "parent-id",
 		Creator:         "Test Creator",
 		CreatedAtMillis: 1234567890,
-		UpdatedAtMillis: 1234567891,
 		Column:          "test-column",
 		CustomFields:    map[string]any{"priority": "high"},
 	}
@@ -149,9 +148,6 @@ func TestCardToJsonCopiesAllFields(t *testing.T) {
 	}
 	if cj.CreatedAtMillis != card.CreatedAtMillis {
 		t.Errorf("CreatedAtMillis mismatch: got %d, want %d", cj.CreatedAtMillis, card.CreatedAtMillis)
-	}
-	if cj.UpdatedAtMillis != card.UpdatedAtMillis {
-		t.Errorf("UpdatedAtMillis mismatch: got %d, want %d", cj.UpdatedAtMillis, card.UpdatedAtMillis)
 	}
 	if cj.Column != card.Column {
 		t.Errorf("Column mismatch: got %q, want %q", cj.Column, card.Column)

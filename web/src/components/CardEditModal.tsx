@@ -614,10 +614,6 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
                 <span className="text-gray-900 dark:text-white">{formatDate(card.created_at_millis)}</span>
               </div>
               <div>
-                <span className="text-gray-500 dark:text-gray-400 block">Updated</span>
-                <span className="text-gray-900 dark:text-white">{formatDate(card.updated_at_millis)}</span>
-              </div>
-              <div>
                 <span className="text-gray-500 dark:text-gray-400 block">ID</span>
                 <span className="text-gray-900 dark:text-white font-mono text-xs break-all">{card.id}</span>
               </div>

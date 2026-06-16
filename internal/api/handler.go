@@ -26,7 +26,6 @@ type CardResponse struct {
 	Parent              string                   `json:"parent,omitempty"`
 	Creator             string                   `json:"creator"`
 	CreatedAtMillis     int64                    `json:"created_at_millis"`
-	UpdatedAtMillis     int64                    `json:"updated_at_millis"`
 	Comments            []model.Comment          `json:"comments,omitempty"`
 	History             []model.HistoryEntry     `json:"history,omitempty"`
 	CustomFields        map[string]any           `json:"-"` // Flattened into top level by MarshalJSON
@@ -45,7 +44,6 @@ func (c CardResponse) MarshalJSON() ([]byte, error) {
 		"position":          c.Position,
 		"creator":           c.Creator,
 		"created_at_millis": c.CreatedAtMillis,
-		"updated_at_millis": c.UpdatedAtMillis,
 	}
 
 	// Add optional fields only if non-empty
@@ -86,7 +84,6 @@ func toCardResponse(card *model.Card) CardResponse {
 		Parent:          card.Parent,
 		Creator:         card.Creator,
 		CreatedAtMillis: card.CreatedAtMillis,
-		UpdatedAtMillis: card.UpdatedAtMillis,
 		Comments:        card.Comments,
 		History:         card.History,
 		CustomFields:    card.CustomFields,

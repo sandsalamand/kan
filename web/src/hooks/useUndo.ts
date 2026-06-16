@@ -7,7 +7,7 @@ const MAX_UNDO_DEPTH = 20;
 // Known Card fields that aren't custom fields
 const KNOWN_CARD_KEYS = new Set([
   'id', 'alias', 'alias_explicit', 'title', 'description',
-  'column', 'parent', 'creator', 'created_at_millis', 'updated_at_millis',
+  'column', 'parent', 'creator', 'created_at_millis',
   'comments', 'missing_wanted_fields',
 ]);
 

@@ -18,7 +18,6 @@ type Card struct {
 	Parent          string    `json:"parent,omitempty"`
 	Creator         string    `json:"creator"`
 	CreatedAtMillis int64     `json:"created_at_millis"`
-	UpdatedAtMillis int64     `json:"updated_at_millis"`
 	Comments        []Comment `json:"comments,omitempty"`
 
 	// History is an append-only, chronological log of tracked field changes.
@@ -114,9 +113,13 @@ func (c *Card) UnmarshalJSON(data []byte) error {
 		"_v": true, "id": true, "alias": true, "alias_explicit": true,
 		"title": true, "description": true,
 		"parent": true, "creator": true,
-		"created_at_millis": true, "updated_at_millis": true,
-		"comments": true, "history": true,
+		"created_at_millis": true,
+		"comments":          true, "history": true,
 		"column": true, "position": true,
+		// Removed in card/4. Still reserved so legacy (pre-migration) card
+		// files don't get their stale timestamp promoted to a custom field on
+		// read. The migration strips it from disk; see migrateCard.
+		"updated_at_millis": true,
 		// Computed/API-only fields that may appear in JSON from external
 		// sources (e.g. restore endpoint) but aren't custom fields.
 		"missing_wanted_fields": true,

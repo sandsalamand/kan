@@ -23,7 +23,6 @@ export interface Card {
   parent?: string;
   creator: string;
   created_at_millis: number;
-  updated_at_millis: number;
   comments?: Comment[];
   history?: HistoryEntry[];
   missing_wanted_fields?: MissingWantedField[];

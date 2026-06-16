@@ -23,7 +23,6 @@ type cardJson struct {
 	Parent          string               `json:"parent,omitempty"`
 	Creator         string               `json:"creator"`
 	CreatedAtMillis int64                `json:"created_at_millis"`
-	UpdatedAtMillis int64                `json:"updated_at_millis"`
 	Comments        []model.Comment      `json:"comments,omitempty"`
 	History         []model.HistoryEntry `json:"history,omitempty"`
 	Column          string               `json:"column"`
@@ -42,7 +41,6 @@ func cardToJson(c *model.Card) cardJson {
 		Parent:          c.Parent,
 		Creator:         c.Creator,
 		CreatedAtMillis: c.CreatedAtMillis,
-		UpdatedAtMillis: c.UpdatedAtMillis,
 		Comments:        c.Comments,
 		History:         c.History,
 		Column:          c.Column,

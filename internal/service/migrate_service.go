@@ -629,11 +629,19 @@ func (s *MigrateService) migrateCard(plan *CardMigration) error {
 	// needs its history seeded.
 	seeded := seedCardHistory(raw)
 
+	// Drop updated_at_millis (removed in card/4). Done before the short-circuit
+	// for the same reason history seeding is: the v9->v10 board migration can
+	// stamp _v to the current version via writeCardColumnPosition without
+	// stripping the field, so the version delta alone can't tell us whether a
+	// card still carries it.
+	_, hadUpdatedAt := raw["updated_at_millis"]
+	delete(raw, "updated_at_millis")
+
 	// Check if already at target version (e.g., v9->v10 board migration already
 	// bumped card files via writeCardColumnPosition). Still persist if we just
-	// seeded history.
+	// seeded history or stripped a removed field.
 	if v, ok := raw["_v"].(float64); ok && int(v) == plan.ToVersion {
-		if seeded {
+		if seeded || hadUpdatedAt {
 			return writeCardMap(plan.Path, raw)
 		}
 		return nil

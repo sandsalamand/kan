@@ -187,7 +187,7 @@ export function useBoard(boardName: string | null, refreshKey = 0) {
       }
 
       // Insert card into target column at position
-      const updatedCard = { ...cardToMove, column: newColumn, updated_at_millis: Date.now() };
+      const updatedCard = { ...cardToMove, column: newColumn };
       const targetColumnCards = cardsByColumn[newColumn] || [];
       if (position !== undefined && position >= 0 && position < targetColumnCards.length) {
         targetColumnCards.splice(position, 0, updatedCard);
@@ -254,7 +254,6 @@ export function useBoard(boardName: string | null, refreshKey = 0) {
           title: updates.title ?? card.title,
           description: updates.description ?? card.description,
           column: updates.column ?? card.column,
-          updated_at_millis: Date.now(),
         } : card
       )
     );

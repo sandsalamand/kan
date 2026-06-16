@@ -39,7 +39,6 @@ function mkCard(id: string, position: string, fields: Record<string, unknown>): 
     position,
     creator: 'test',
     created_at_millis: 0,
-    updated_at_millis: 0,
     ...fields,
   };
 }

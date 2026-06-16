@@ -18,7 +18,6 @@ func TestCardJSON_RoundTrip(t *testing.T) {
 		Parent:          "parent123",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704393600000,
 		Comments: []Comment{
 			{
 				ID:              "c_123",
@@ -65,7 +64,6 @@ func TestCardJSON_CustomFields(t *testing.T) {
 		Title:           "Test Card",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704393600000,
 		CustomFields: map[string]any{
 			"priority": "high",
 			"assignee": "john",
@@ -113,7 +111,6 @@ func TestCardJSON_EmptyCustomFields(t *testing.T) {
 		Title:           "Test Card",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704393600000,
 	}
 
 	data, err := json.Marshal(original)
@@ -129,6 +126,33 @@ func TestCardJSON_EmptyCustomFields(t *testing.T) {
 	// CustomFields should be nil when empty
 	if restored.CustomFields != nil {
 		t.Errorf("Expected nil CustomFields, got %v", restored.CustomFields)
+	}
+}
+
+// updated_at_millis was removed in card/4. Legacy card files still carry it, so
+// reading one must silently drop the field rather than promote it to a custom
+// field (it stays on the reserved-key allowlist for exactly this reason).
+func TestCardJSON_LegacyUpdatedAtDropped(t *testing.T) {
+	legacy := []byte(`{
+		"_v": 3,
+		"id": "abc123",
+		"title": "Test Card",
+		"creator": "tester",
+		"created_at_millis": 1704307200000,
+		"updated_at_millis": 1704393600000,
+		"priority": "high"
+	}`)
+
+	var restored Card
+	if err := json.Unmarshal(legacy, &restored); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if _, leaked := restored.CustomFields["updated_at_millis"]; leaked {
+		t.Errorf("updated_at_millis leaked into custom fields: %v", restored.CustomFields)
+	}
+	if restored.CustomFields["priority"] != "high" {
+		t.Errorf("genuine custom field lost: %v", restored.CustomFields)
 	}
 }
 
@@ -527,7 +551,6 @@ func TestCardMarshalFile_HistoryOneLinePerEntry(t *testing.T) {
 		Title:           "Test",
 		Creator:         "tester",
 		CreatedAtMillis: 1700000000000,
-		UpdatedAtMillis: 1700900000000,
 		Column:          "review",
 		Position:        "V",
 		History: []HistoryEntry{
@@ -584,7 +607,6 @@ func TestCardMarshalFile_NoHistory(t *testing.T) {
 		Title:           "Test",
 		Creator:         "tester",
 		CreatedAtMillis: 1700000000000,
-		UpdatedAtMillis: 1700000000000,
 		Column:          "backlog",
 		Position:        "V",
 	}
@@ -604,7 +626,6 @@ func TestCardMarshalFile_PreservesCustomFields(t *testing.T) {
 		Title:           "Test",
 		Creator:         "tester",
 		CreatedAtMillis: 1700000000000,
-		UpdatedAtMillis: 1700000000000,
 		Column:          "backlog",
 		Position:        "V",
 		CustomFields:    map[string]any{"priority": "high"},
