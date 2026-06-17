@@ -361,6 +361,15 @@ func (h *Handler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Board config drives both the web-GUI field defaults below and the wanted
+	// fields check on the response.
+	boardCfg, _ := h.ctx().BoardStore.Get(boardName)
+
+	// Apply web-GUI-only field defaults for fields the request didn't set. This
+	// path is exclusive to the web GUI; the CLI (kan add) goes through the
+	// service directly and still warns about missing wanted fields.
+	req.CustomFields = applyWebGUIDefaults(req.CustomFields, boardCfg)
+
 	input := service.AddCardInput{
 		BoardName:    boardName,
 		Title:        req.Title,
@@ -376,9 +385,6 @@ func (h *Handler) CreateCard(w http.ResponseWriter, r *http.Request) {
 		Error(w, err)
 		return
 	}
-
-	// Get board config for wanted fields check
-	boardCfg, _ := h.ctx().BoardStore.Get(boardName)
 
 	// Build hook info response
 	var hookInfos []HookInfo
@@ -801,6 +807,29 @@ type CommentResponse struct {
 // stringifyCustomFields converts API custom field values to strings for the
 // service layer. The API accepts any JSON value (string, bool, number) so that
 // clients can send e.g. {"high_priority": true} instead of {"high_priority": "true"}.
+// applyWebGUIDefaults fills in custom-field values from each field's
+// default_webgui schema setting for any field the request didn't provide. It is
+// invoked only from the web-GUI create path (this HTTP handler); the CLI bypasses
+// it, so wanted-field warnings still fire for agents using kan add.
+func applyWebGUIDefaults(fields map[string]any, boardCfg *model.BoardConfig) map[string]any {
+	if boardCfg == nil {
+		return fields
+	}
+	for name, schema := range boardCfg.CustomFields {
+		if schema.DefaultWebGUI == nil {
+			continue
+		}
+		if _, set := fields[name]; set {
+			continue
+		}
+		if fields == nil {
+			fields = make(map[string]any)
+		}
+		fields[name] = schema.DefaultWebGUI
+	}
+	return fields
+}
+
 func stringifyCustomFields(fields map[string]any) map[string]string {
 	if fields == nil {
 		return nil

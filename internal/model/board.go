@@ -68,6 +68,11 @@ type CustomFieldSchema struct {
 	Options     []CustomFieldOption `toml:"options,omitempty" json:"options,omitempty"` // For enum/enum-set types
 	Wanted      bool                `toml:"wanted,omitempty" json:"wanted,omitempty"`   // Warn if field is missing
 	Description string              `toml:"description,omitempty" json:"description,omitempty"`
+	// DefaultWebGUI is applied to new cards created via the web GUI when the
+	// field isn't otherwise set. It does NOT affect the CLI (kan add), so wanted
+	// fields still warn there — e.g. agents are nudged to set ai_generated while
+	// human-created GUI cards get the default. nil means no default.
+	DefaultWebGUI any `toml:"default_webgui,omitempty" json:"default_webgui,omitempty"`
 }
 
 // CardDisplayConfig controls how custom fields render on cards in the board view.
