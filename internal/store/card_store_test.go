@@ -46,7 +46,6 @@ func TestFileCardStore_CreateAndGet(t *testing.T) {
 		Title:           "Test Card",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704307200000,
 	}
 
 	// Create (store automatically stamps Version)
@@ -95,7 +94,6 @@ func TestFileCardStore_Update(t *testing.T) {
 		Title:           "Original Title",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704307200000,
 	}
 
 	if err := store.Create("main", card); err != nil {
@@ -133,7 +131,6 @@ func TestFileCardStore_Delete(t *testing.T) {
 		Title:           "Test Card",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704307200000,
 	}
 
 	if err := store.Create("main", card); err != nil {
@@ -168,9 +165,9 @@ func TestFileCardStore_List(t *testing.T) {
 
 	// Create multiple cards
 	cards := []*model.Card{
-		{ID: "card1", Alias: "card-1", Title: "Card 1", Creator: "tester", CreatedAtMillis: 1, UpdatedAtMillis: 1},
-		{ID: "card2", Alias: "card-2", Title: "Card 2", Creator: "tester", CreatedAtMillis: 2, UpdatedAtMillis: 2},
-		{ID: "card3", Alias: "card-3", Title: "Card 3", Creator: "tester", CreatedAtMillis: 3, UpdatedAtMillis: 3},
+		{ID: "card1", Alias: "card-1", Title: "Card 1", Creator: "tester", CreatedAtMillis: 1},
+		{ID: "card2", Alias: "card-2", Title: "Card 2", Creator: "tester", CreatedAtMillis: 2},
+		{ID: "card3", Alias: "card-3", Title: "Card 3", Creator: "tester", CreatedAtMillis: 3},
 	}
 
 	for _, card := range cards {
@@ -218,7 +215,6 @@ func TestFileCardStore_FindByAlias(t *testing.T) {
 		Title:           "Test Card",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704307200000,
 	}
 
 	if err := store.Create("main", card); err != nil {
@@ -256,7 +252,6 @@ func TestFileCardStore_CustomFields(t *testing.T) {
 		Title:           "Test Card",
 		Creator:         "tester",
 		CreatedAtMillis: 1704307200000,
-		UpdatedAtMillis: 1704307200000,
 		CustomFields: map[string]any{
 			"priority": "high",
 			"estimate": 5,

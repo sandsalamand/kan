@@ -124,7 +124,6 @@ Location: `.kan/boards/<board-name>/cards/<flexid>.json`
   "parent": "m3Yp8n",
   "creator": "amterp",
   "created_at_millis": 1704307200000,
-  "updated_at_millis": 1704393600000,
   "comments": [
     {
       "id": "c_9kL2x",
@@ -151,7 +150,6 @@ Location: `.kan/boards/<board-name>/cards/<flexid>.json`
 | `parent` | No | ID of parent card (for subtask relationships). MAY reference cards in other boards within the same repo. |
 | `creator` | Yes | Username of card creator |
 | `created_at_millis` | Yes | Creation timestamp in milliseconds since Unix epoch |
-| `updated_at_millis` | Yes | Last update timestamp in milliseconds since Unix epoch |
 | `comments` | No | Array of comment objects |
 | (custom fields) | No | Any fields defined in board's `custom_fields` config |
 
@@ -407,7 +405,7 @@ These are structural or system fields that exist on every card:
 | Workflow | `column` | Structural—determines board position |
 | Hierarchy | `parent` | Structural—enables subtask relationships |
 | Discussion | `comments` | Nested objects, not a simple field type |
-| System | `creator`, `created_at_millis`, `updated_at_millis`, `_v` | Auto-managed metadata |
+| System | `creator`, `created_at_millis`, `_v` | Auto-managed metadata |
 
 Core fields have dedicated schema, validation, and (where applicable) CLI flags. They are not configurable per-board.
 

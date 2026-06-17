@@ -219,9 +219,6 @@ func TestCardService_Add_Basic(t *testing.T) {
 	if card.CreatedAtMillis == 0 {
 		t.Error("CreatedAtMillis should be set")
 	}
-	if card.UpdatedAtMillis == 0 {
-		t.Error("UpdatedAtMillis should be set")
-	}
 }
 
 func TestCardService_Add_WithCustomFields(t *testing.T) {
@@ -379,7 +376,7 @@ func TestCardService_Get_NotFound(t *testing.T) {
 // Update() Tests
 // ============================================================================
 
-func TestCardService_Update_ModifiesTimestamp(t *testing.T) {
+func TestCardService_Update_PersistsChanges(t *testing.T) {
 	service, _, boardStore := setupCardService()
 	boardStore.addBoard(testBoardConfig("main"))
 
@@ -401,11 +398,6 @@ func TestCardService_Update_ModifiesTimestamp(t *testing.T) {
 
 	if updated.CreatedAtMillis != originalCreated {
 		t.Error("CreatedAtMillis should not change on update")
-	}
-	// Note: UpdatedAtMillis is set by Update(), so it should be >= original
-	// (may be same millisecond in fast tests)
-	if updated.UpdatedAtMillis < originalCreated {
-		t.Error("UpdatedAtMillis should be set")
 	}
 	if updated.Description != "Updated description" {
 		t.Error("Description should be updated")

@@ -130,7 +130,6 @@ func (s *CardService) Add(input AddCardInput) (*model.Card, []*HookResult, error
 		Parent:          input.Parent,
 		Creator:         input.Creator,
 		CreatedAtMillis: now,
-		UpdatedAtMillis: now,
 		Column:          column,
 		Position:        position,
 		History: []model.HistoryEntry{
@@ -181,7 +180,6 @@ func (s *CardService) Update(boardName string, card *model.Card) error {
 		return err
 	}
 
-	card.UpdatedAtMillis = util.NowMillis()
 	return s.cardStore.Update(boardName, card)
 }
 
@@ -345,7 +343,6 @@ func (s *CardService) MoveCardWithPlacement(boardName, cardID, targetColumn stri
 	prevColumn := card.Column
 	card.Column = targetColumn
 	card.Position = computePosition(colCards, idx)
-	card.UpdatedAtMillis = util.NowMillis()
 
 	// Record the transition, but only on a genuine column change. Within-column
 	// reorders flow through here too (targetColumn == prevColumn) and must not
@@ -353,7 +350,7 @@ func (s *CardService) MoveCardWithPlacement(boardName, cardID, targetColumn stri
 	// by design - history is an append-only log, not a set.
 	if prevColumn != targetColumn {
 		card.History = append(card.History, model.HistoryEntry{
-			Field: "column", Value: targetColumn, At: card.UpdatedAtMillis,
+			Field: "column", Value: targetColumn, At: util.NowMillis(),
 		})
 	}
 

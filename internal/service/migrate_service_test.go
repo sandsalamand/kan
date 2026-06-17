@@ -1775,8 +1775,8 @@ func TestMigrateService_CardV2ToV3_SeedsHistory(t *testing.T) {
 	}
 }
 
-func TestMigrateService_CardV3_NoOp(t *testing.T) {
-	// The v11 fixture card is already card/3 with history; it must not be
+func TestMigrateService_CardV4_NoOp(t *testing.T) {
+	// The v11 fixture card is already card/4 (current); it must not be
 	// re-migrated or have its history altered.
 	service, _, cleanup := setupMigrationTest(t, "v11")
 	defer cleanup()
@@ -1786,7 +1786,52 @@ func TestMigrateService_CardV3_NoOp(t *testing.T) {
 		t.Fatalf("Plan failed: %v", err)
 	}
 	if plan.HasChanges() {
-		t.Error("card/3 data with history should not need migration")
+		t.Error("card/4 data should not need migration")
+	}
+}
+
+// ============================================================================
+// Card v3 -> v4 Migration Tests (drop updated_at_millis)
+// ============================================================================
+
+func TestMigrateService_CardV3ToV4_DropsUpdatedAt(t *testing.T) {
+	service, tempDir, cleanup := setupMigrationTest(t, "v3")
+	defer cleanup()
+
+	plan, err := service.Plan()
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+	if !plan.HasChanges() {
+		t.Fatal("card/3 data should need migration to card/4")
+	}
+	if err := service.Execute(plan, false); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	cardPath := filepath.Join(tempDir, ".kan", "boards", "main", "cards", "card-abc.json")
+	data, err := os.ReadFile(cardPath)
+	if err != nil {
+		t.Fatalf("Failed to read migrated card: %v", err)
+	}
+
+	var card map[string]any
+	if err := json.Unmarshal(data, &card); err != nil {
+		t.Fatalf("Failed to parse migrated card: %v", err)
+	}
+
+	if int(card["_v"].(float64)) != version.CurrentCardVersion {
+		t.Errorf("Card _v = %v, want %d", card["_v"], version.CurrentCardVersion)
+	}
+	if _, ok := card["updated_at_millis"]; ok {
+		t.Errorf("updated_at_millis should be stripped on migration to card/4, got: %v", card)
+	}
+
+	// The migrated card must be readable by the (strict-version) store.
+	paths := config.NewPaths(tempDir, "")
+	cardStore := store.NewCardStore(paths)
+	if _, err := cardStore.Get("main", "card-abc"); err != nil {
+		t.Fatalf("CardStore.Get failed after migration: %v", err)
 	}
 }
 

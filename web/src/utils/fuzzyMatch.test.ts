@@ -12,7 +12,6 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     column: 'in-progress',
     creator: 'Alexander Terp',
     created_at_millis: 0,
-    updated_at_millis: 0,
     ...overrides,
   };
 }

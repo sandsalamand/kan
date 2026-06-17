@@ -149,7 +149,6 @@ func createCardFromResponse(t *testing.T, w *httptest.ResponseRecorder) model.Ca
 		Parent:          resp.Card.Parent,
 		Creator:         resp.Card.Creator,
 		CreatedAtMillis: resp.Card.CreatedAtMillis,
-		UpdatedAtMillis: resp.Card.UpdatedAtMillis,
 		Comments:        resp.Card.Comments,
 	}
 }

@@ -66,7 +66,6 @@ func setupAutoMigrateProject(t *testing.T, boardSchema string, cardVersion int) 
 		"position":          "V",
 		"creator":           "tester",
 		"created_at_millis": 1704307200000,
-		"updated_at_millis": 1704307200000,
 	}
 	if cardVersion > 0 {
 		card["_v"] = cardVersion

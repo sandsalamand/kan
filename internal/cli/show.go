@@ -110,7 +110,6 @@ func printCard(card *model.Card, colColor, boardName string, multipleBoards bool
 	fmt.Println()
 	fmt.Println(LabelValue("Creator", card.Creator, labelWidth))
 	fmt.Println(LabelValue("Created", RenderMuted(util.FormatMillis(card.CreatedAtMillis)), labelWidth))
-	fmt.Println(LabelValue("Updated", RenderMuted(util.FormatMillis(card.UpdatedAtMillis)), labelWidth))
 
 	if len(card.Comments) > 0 {
 		fmt.Printf("\n%s\n", RenderMuted(fmt.Sprintf("Comments (%d):", len(card.Comments))))

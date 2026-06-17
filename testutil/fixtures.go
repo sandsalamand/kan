@@ -22,7 +22,6 @@ func TestCard(id, title string) *model.Card {
 		Column:          "Backlog",
 		Creator:         "tester",
 		CreatedAtMillis: now,
-		UpdatedAtMillis: now,
 	}
 }
 
