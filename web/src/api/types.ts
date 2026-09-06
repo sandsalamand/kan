@@ -124,6 +124,8 @@ export interface UpdateCardInput {
   title?: string;
   description?: string;
   column?: string;
+  // Card ID of the parent (epic). Empty string clears the parent.
+  parent?: string;
   custom_fields?: Record<string, unknown>;
 }
 

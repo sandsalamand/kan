@@ -5,7 +5,7 @@ import { useOmnibar } from './hooks/useOmnibar';
 import { useBoardSwitcher } from './hooks/useBoardSwitcher';
 import { useSlashCommandAutocomplete } from './hooks/useSlashCommandAutocomplete';
 import { useThemeSwitcher } from './hooks/useThemeSwitcher';
-import { COMPACT_COMMAND, SLIM_COMMAND } from './hooks/omnibarConstants';
+import { COMPACT_COMMAND, SLIM_COMMAND, EPICS_COMMAND } from './hooks/omnibarConstants';
 import type { SlashCommand } from './hooks/omnibarConstants';
 import { useProject, usePageTitle, useFavicon } from './hooks/useProject';
 import { useUrlState } from './hooks/useUrlState';
@@ -23,6 +23,7 @@ import { restoreCard as apiRestoreCard } from './api/cards';
 import { useUndo } from './hooks/useUndo';
 import { useCompactMode } from './contexts/CompactModeContext';
 import { useSlimMode } from './contexts/SlimModeContext';
+import { useEpicMode } from './contexts/EpicModeContext';
 import { useToast } from './contexts/ToastContext';
 
 
@@ -66,6 +67,7 @@ function BoardApp() {
   });
   const { toggleCompact, setProjectPath } = useCompactMode();
   const { isSlim, toggleSlim } = useSlimMode();
+  const { toggleGrouped } = useEpicMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const { project } = useProject(refreshKey);
 
@@ -148,8 +150,11 @@ function BoardApp() {
     } else if (cmd.command === SLIM_COMMAND) {
       toggleSlim();
       omnibar.close();
+    } else if (cmd.command === EPICS_COMMAND) {
+      toggleGrouped();
+      omnibar.close();
     }
-  }, [omnibar, toggleCompact, toggleSlim]);
+  }, [omnibar, toggleCompact, toggleSlim, toggleGrouped]);
 
   // Set page title and favicon
   usePageTitle(project?.name, boardName);
@@ -345,8 +350,11 @@ function BoardApp() {
     } else if (trimmedQuery === SLIM_COMMAND) {
       toggleSlim();
       omnibar.close();
+    } else if (trimmedQuery === EPICS_COMMAND) {
+      toggleGrouped();
+      omnibar.close();
     }
-  }, [omnibar, boardSwitcher, cards, setBoard, openCard, toggleCompact, toggleSlim, executeSlashCommand, slashAutocomplete, setProjectPath]);
+  }, [omnibar, boardSwitcher, cards, setBoard, openCard, toggleCompact, toggleSlim, toggleGrouped, executeSlashCommand, slashAutocomplete, setProjectPath]);
 
   // Handle clicking a board entry in the list
   const handleBoardSelect = useCallback(async (index: number) => {
@@ -387,6 +395,7 @@ function BoardApp() {
   // Cmd+K keyboard shortcut for omnibar (cards mode)
   // Cmd+P keyboard shortcut for board switcher
   // Cmd+C keyboard shortcut for compact mode toggle
+  // Cmd+E keyboard shortcut for epic grouping toggle
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -417,6 +426,15 @@ function BoardApp() {
         e.preventDefault();
         toggleCompact();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+        const selection = window.getSelection();
+        if (selection && selection.toString().length > 0) return;
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (omnibar.isOpen || cardId) return;
+        e.preventDefault();
+        toggleGrouped();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
         const selection = window.getSelection();
         if (selection && selection.toString().length > 0) return;
@@ -430,7 +448,7 @@ function BoardApp() {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [omnibar, cardId, toggleCompact, toggleSlim]);
+  }, [omnibar, cardId, toggleCompact, toggleSlim, toggleGrouped]);
 
   const handleNewCard = useCallback(async () => {
     if (!board) return;
@@ -483,6 +501,9 @@ function BoardApp() {
       }
       if (updates.column !== undefined && updates.column !== modalCard.column) {
         fieldChanges.column = { from: modalCard.column, to: updates.column };
+      }
+      if (updates.parent !== undefined && updates.parent !== (modalCard.parent ?? '')) {
+        fieldChanges.parent = { from: modalCard.parent ?? '', to: updates.parent };
       }
       if (updates.custom_fields) {
         for (const [key, apiValue] of Object.entries(updates.custom_fields)) {
@@ -625,6 +646,7 @@ function BoardApp() {
         <CardEditModal
           card={modalCard}
           board={board}
+          allCards={cards}
           onSave={handleSaveModalCard}
           onDelete={handleDeleteModalCard}
           onClose={closeCard}

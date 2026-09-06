@@ -20,6 +20,7 @@ Type `/` in quick search to see available commands with autocomplete. Use ↑ �
 |---------|--------|
 | /board | Switch to another board |
 | /compact | Toggle compact view |
+| /epics | Toggle epic grouping |
 | /slim | Toggle slim view (vertical columns) |
 
 ### How Filtering Works
@@ -44,9 +45,12 @@ The search looks across all card fields: title, alias, description, and any cust
 | Shortcut | Action |
 |----------|--------|
 | ⌘C | Toggle compact view |
+| ⌘E | Toggle epic grouping |
 | ⌘J | Toggle slim view (vertical columns) |
 
 **Compact mode** reduces card padding and hides aliases to show more cards at once.
+
+**Epic grouping** wraps cards that share a `parent` in one colored block, so an epic reads as a unit even when its cards are scattered down the column or split by a sort. See [Editing](editing.md#epics-parent-cards).
 
 **Slim mode** stacks columns vertically for narrow windows. Cards get an advance button (moves to next column) and right-click context menu (move to any column). Card modals are disabled - slim mode is for quick task processing.
 

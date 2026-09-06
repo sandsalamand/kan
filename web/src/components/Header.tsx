@@ -1,5 +1,6 @@
 import ThemeToggle from './ThemeToggle';
 import CompactToggle from './CompactToggle';
+import EpicToggle from './EpicToggle';
 import SlimToggle from './SlimToggle';
 import { useSlimMode } from '../contexts/SlimModeContext';
 import type { BoardConfig } from '../api/types';
@@ -150,6 +151,7 @@ export default function Header({
             Docs
           </a>
         )}
+        <EpicToggle />
         {!isSlim && <CompactToggle />}
         <SlimToggle />
         {!isSlim && <ThemeToggle />}

@@ -7,7 +7,10 @@ import type { UndoAction } from '../hooks/useUndo';
 import { cardMatchesQuery } from '../utils/fuzzyMatch';
 import { toApiFieldValue } from '../utils/customFields';
 import { sortCards } from '../utils/cardSort';
+import type { EpicNode } from '../utils/epicGroups';
+import { buildEpicLayout, EPIC_DROP_PREFIX, EPIC_MOUTH_PREFIX, isSelfOrDescendant, parseEpicDropId } from '../utils/epicGroups';
 import { BoardConfigProvider } from '../contexts/BoardConfigContext';
+import { useEpicMode } from '../contexts/EpicModeContext';
 import { useToast } from '../contexts/ToastContext';
 import Column from './Column';
 import CardComponent from './Card';
@@ -70,6 +73,7 @@ export default function Board({
 }: BoardProps) {
   const { showToast } = useToast();
   const { isSlim } = useSlimMode();
+  const { isGrouped } = useEpicMode();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<ColumnType | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<string | null>(null);
@@ -113,16 +117,31 @@ export default function Board({
   // be carried over in the URL from another board, or removed from config).
   const activeSortField = sortField && board.custom_fields?.[sortField] ? sortField : '';
 
-  const cardsByColumn = useMemo(() =>
-    board.columns.reduce<Record<string, Card[]>>((acc, column) => {
+  // Cards per column in the order they render. With epic grouping on, members of
+  // an epic are pulled together under their parent, so this is the *visual*
+  // order — drag indexes are translated back to stored order in handleDragEnd.
+  const { cardsByColumn, layoutsByColumn } = useMemo(() => {
+    const byColumn: Record<string, Card[]> = {};
+    const layouts: Record<string, EpicNode[] | null> = {};
+
+    for (const column of board.columns) {
       const colCards = filteredCards.filter((card) => card.column === column.name);
-      acc[column.name] = activeSortField
+      const ordered = activeSortField
         ? sortCards(colCards, board, activeSortField, sortDescending)
         : colCards;
-      return acc;
-    }, {}),
-    [board, filteredCards, activeSortField, sortDescending]
-  );
+
+      if (isGrouped) {
+        const layout = buildEpicLayout(ordered, cards);
+        byColumn[column.name] = layout.flat;
+        layouts[column.name] = layout.nodes;
+      } else {
+        byColumn[column.name] = ordered;
+        layouts[column.name] = null;
+      }
+    }
+
+    return { cardsByColumn: byColumn, layoutsByColumn: layouts };
+  }, [board, cards, filteredCards, activeSortField, sortDescending, isGrouped]);
 
   // Unfiltered card counts for column limit checks (filter must not bypass limits)
   const allCardsByColumn = useMemo(() =>
@@ -184,6 +203,36 @@ export default function Board({
 
       return closestColumn ? [{ id: closestColumn.id }] : [];
     }
+
+    const within = (rect: { left: number; right: number; top: number; bottom: number } | null) =>
+      !!rect && pointerX >= rect.left && pointerX <= rect.right && pointerY >= rect.top && pointerY <= rect.bottom;
+
+    // Epic blocks are drop targets that add the card to the epic. The header
+    // wins outright; the mouth only claims cards that aren't already members,
+    // so members can still be reordered inside their own block.
+    const draggedCard = cards.find((c) => c.id === activeId);
+    let innerMouth: { id: string; area: number } | null = null;
+
+    for (const container of cardContainers) {
+      const id = container.id as string;
+      const rect = container.rect.current;
+
+      if (id.startsWith(EPIC_DROP_PREFIX)) {
+        if (within(rect)) return [{ id }];
+        continue;
+      }
+
+      if (!id.startsWith(EPIC_MOUTH_PREFIX) || !within(rect) || !rect) continue;
+      const target = parseEpicDropId(id);
+      if (!target) continue;
+      if (draggedCard?.parent === target.epicId) continue; // already a member
+      if (draggedCard?.id === target.epicId) continue; // its own block
+      // Nested epics overlap; the smallest mouth under the pointer is the one meant.
+      const area = rect.width * rect.height;
+      if (!innerMouth || area < innerMouth.area) innerMouth = { id, area };
+    }
+
+    if (innerMouth) return [{ id: innerMouth.id }];
 
     // For card drags: primary axis determines column, Y determines position within column
     let targetColumn: DroppableContainer | null = null;
@@ -293,6 +342,14 @@ export default function Board({
     const overId = over.id as string;
     const isColumn = columnNames.includes(overId);
 
+    // Over an epic block: the drop re-parents rather than repositions, so no
+    // insertion placeholder — the block highlights itself instead.
+    if (parseEpicDropId(overId)) {
+      setOverColumn(null);
+      setOverIndex(null);
+      return;
+    }
+
     if (isColumn) {
       // Hovering over column itself (empty area)
       setOverColumn(overId);
@@ -345,6 +402,36 @@ export default function Board({
     const draggedCard = cards.find((c) => c.id === activeId);
     if (!draggedCard) return;
 
+    // Dropped on an epic block: join that epic, the way a Scratch block snaps
+    // into a C-block. A block in another column also moves the card there,
+    // since that's where it visibly landed.
+    const epicTarget = parseEpicDropId(overId);
+    if (epicTarget) {
+      const { epicId, column: epicColumnName } = epicTarget;
+      const movesColumn = draggedCard.column !== epicColumnName;
+      if (draggedCard.parent === epicId && !movesColumn) return; // nothing to do
+      if (isSelfOrDescendant(epicId, activeId, cards)) {
+        showToast('error', 'A card cannot be nested inside itself.');
+        return;
+      }
+      const fromParent = draggedCard.parent ?? '';
+      const fromColumn = draggedCard.column;
+      try {
+        await onUpdateCard(activeId, movesColumn ? { parent: epicId, column: epicColumnName } : { parent: epicId });
+        // Undoable like any other card edit — a mis-drop shouldn't need hunting
+        // through the board to put a card back where it was.
+        const fieldChanges: Record<string, { from: unknown; to: unknown }> = {
+          parent: { from: fromParent, to: epicId },
+        };
+        if (movesColumn) fieldChanges.column = { from: fromColumn, to: epicColumnName };
+        onPushUndo?.({ type: 'edit', cardId: activeId, fieldChanges });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Failed to add card to epic';
+        showToast('error', message);
+      }
+      return;
+    }
+
     // Determine if we dropped on a column or a card
     const isColumn = columnNames.includes(overId);
 
@@ -377,6 +464,14 @@ export default function Board({
       } else {
         // Different column - insert at target card's position
         position = targetIndex;
+      }
+
+      // Epic grouping rearranges a column for display, so a visible index isn't
+      // a stored index. Translate "insert before the card I dropped on" back
+      // into the column's stored order.
+      if (isGrouped) {
+        const storedIndex = (allCardsByColumn[targetColumn] || []).findIndex((c) => c.id === overId);
+        if (storedIndex !== -1) position = storedIndex;
       }
     }
 
@@ -807,6 +902,7 @@ export default function Board({
                 column={column}
                 columnIndex={index}
                 cards={cardsByColumn[column.name] || []}
+                layout={layoutsByColumn[column.name]}
                 board={board}
                 highlightedCardId={highlightedCardId}
                 isAddingCard={addingToColumn === column.name}

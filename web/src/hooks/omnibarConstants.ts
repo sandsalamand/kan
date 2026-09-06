@@ -11,6 +11,9 @@ export const COMPACT_COMMAND = '/compact';
 // Slash-command that toggles slim view mode (vertical column layout).
 export const SLIM_COMMAND = '/slim';
 
+// Slash-command that toggles epic grouping (parent cards wrap their children).
+export const EPICS_COMMAND = '/epics';
+
 // Structured command registry for autocomplete.
 export interface SlashCommand {
   /** The command string the user types, e.g. "/board" */
@@ -27,6 +30,7 @@ export interface SlashCommand {
 export const SLASH_COMMANDS: SlashCommand[] = [
   { command: '/board', description: 'Switch to another board', insertsIntoInput: true },
   { command: '/compact', description: 'Toggle compact view', insertsIntoInput: false },
+  { command: '/epics', description: 'Toggle epic grouping', insertsIntoInput: false },
   { command: '/slim', description: 'Toggle slim view (vertical columns)', insertsIntoInput: false },
   { command: '/theme', description: 'Switch theme', insertsIntoInput: true },
 ];

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Card, BoardConfig, UpdateCardInput, Comment } from '../api/types';
 import { createComment, editComment, deleteComment } from '../api/cards';
+import { epicColor, isSelfOrDescendant } from '../utils/epicGroups';
 import { toApiFieldValues } from '../utils/customFields';
 import { formatDuration } from '../utils/duration';
 import MarkdownField from './MarkdownField';
@@ -10,6 +11,8 @@ import CustomFieldsEditor from './CustomFieldsEditor';
 interface CardEditModalProps {
   card: Card;
   board: BoardConfig;
+  /** Every card on the board — the candidates for this card's parent (epic). */
+  allCards?: Card[];
   onSave: (updates: UpdateCardInput) => Promise<void>;
   onDelete: () => void;
   onClose: () => void;
@@ -35,10 +38,12 @@ function getFieldValue(card: Card, fieldName: string): unknown {
   return card[fieldName];
 }
 
-export default function CardEditModal({ card, board, onSave, onDelete, onClose, focusDescription }: CardEditModalProps) {
+
+export default function CardEditModal({ card, board, allCards = [], onSave, onDelete, onClose, focusDescription }: CardEditModalProps) {
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description || '');
   const [column, setColumn] = useState(card.column);
+  const [parent, setParent] = useState(card.parent || '');
   const [saving, setSaving] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
@@ -51,6 +56,17 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
   );
   const columnSince =
     columnHistory.length > 0 ? columnHistory[columnHistory.length - 1].at : card.created_at_millis;
+
+  // Parent candidates: every other card on the board that wouldn't create a
+  // cycle (i.e. not this card and not one of its descendants).
+  const parentOptions = useMemo(
+    () => allCards.filter((c) => c.id !== card.id && !isSelfOrDescendant(c.id, card.id, allCards)),
+    [allCards, card.id]
+  );
+  const childCount = useMemo(
+    () => allCards.filter((c) => c.parent === card.id).length,
+    [allCards, card.id]
+  );
 
   // Comment state
   const [comments, setComments] = useState<Comment[]>(card.comments || []);
@@ -109,6 +125,7 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
     if (title !== card.title) return true;
     if (description !== (card.description || '')) return true;
     if (column !== card.column) return true;
+    if (parent !== (card.parent || '')) return true;
 
     // Check custom fields
     if (board.custom_fields) {
@@ -127,7 +144,7 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
       }
     }
     return false;
-  }, [title, description, column, customFieldValues, card, board.custom_fields]);
+  }, [title, description, column, parent, customFieldValues, card, board.custom_fields]);
 
   // Save state when it changes
   useEffect(() => {
@@ -218,6 +235,12 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
         column,
       };
 
+      // Only send parent when it actually changed — "" is a real value that
+      // clears the parent, so it can't be sent unconditionally.
+      if (parent !== (card.parent || '')) {
+        updates.parent = parent;
+      }
+
       // Build custom_fields for update
       if (board.custom_fields && Object.keys(customFieldValues).length > 0) {
         const apiFields = toApiFieldValues(customFieldValues, board.custom_fields);
@@ -230,7 +253,7 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
     } finally {
       setSaving(false);
     }
-  }, [title, description, column, customFieldValues, board.custom_fields, onSave]);
+  }, [title, description, column, parent, card.parent, customFieldValues, board.custom_fields, onSave]);
 
   const handleSave = useCallback(async () => {
     await performSave();
@@ -592,6 +615,41 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 In this column for {formatDuration(Date.now() - columnSince)}
               </p>
+            </div>
+
+            {/* Epic (parent card). Cards sharing a parent render as one group on
+                the board, so this is how a card joins or leaves an epic. */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Epic</label>
+              <div className="flex items-center gap-2">
+                {parent && (
+                  <span
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: epicColor(parent) }}
+                    title="Epic color on the board"
+                  />
+                )}
+                <select
+                  value={parent}
+                  onChange={(e) => setParent(e.target.value)}
+                  // A focused native select changes value on wheel, and this
+                  // modal saves on close — don't let a scroll re-parent a card.
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full min-w-0 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">No epic</option>
+                  {parentOptions.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {childCount > 0 && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  This card is an epic with {childCount} card{childCount === 1 ? '' : 's'} under it.
+                </p>
+              )}
             </div>
 
             {/* Custom fields */}

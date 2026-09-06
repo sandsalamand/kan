@@ -71,7 +71,9 @@ function buildFieldUpdate(
   let staleCount = 0;
 
   for (const [key, change] of Object.entries(fieldChanges)) {
-    const currentValue = card[key];
+    // An unset parent comes back from the API as undefined but is recorded as
+    // '' (the value that clears it), so normalize before comparing.
+    const currentValue = key === 'parent' ? (card.parent ?? '') : card[key];
     const isStale = JSON.stringify(currentValue) !== JSON.stringify(change[expectedKey]);
 
     if (isStale) {
@@ -85,6 +87,7 @@ function buildFieldUpdate(
       if (key === 'title') updates.title = value as string;
       else if (key === 'description') updates.description = value as string;
       else if (key === 'column') updates.column = value as string;
+      else if (key === 'parent') updates.parent = (value ?? '') as string;
     } else {
       customFields[key] = value;
     }
