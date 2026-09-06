@@ -254,6 +254,7 @@ export function useBoard(boardName: string | null, refreshKey = 0) {
           title: updates.title ?? card.title,
           description: updates.description ?? card.description,
           column: updates.column ?? card.column,
+          parent: updates.parent ?? card.parent,
         } : card
       )
     );

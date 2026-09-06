@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Card, BoardConfig, UpdateCardInput, Comment } from '../api/types';
 import { createComment, editComment, deleteComment } from '../api/cards';
-import { toApiFieldValues } from '../utils/customFields';
+import { epicColor, isSelfOrDescendant } from '../utils/epicGroups';
+import type { CardEdits } from '../utils/cardEdits';
+import { buildCardUpdate } from '../utils/cardEdits';
 import { formatDuration } from '../utils/duration';
 import MarkdownField from './MarkdownField';
 import MarkdownView from './MarkdownView';
@@ -10,6 +12,8 @@ import CustomFieldsEditor from './CustomFieldsEditor';
 interface CardEditModalProps {
   card: Card;
   board: BoardConfig;
+  /** Every card on the board — the candidates for this card's parent (epic). */
+  allCards?: Card[];
   onSave: (updates: UpdateCardInput) => Promise<void>;
   onDelete: () => void;
   onClose: () => void;
@@ -35,11 +39,24 @@ function getFieldValue(card: Card, fieldName: string): unknown {
   return card[fieldName];
 }
 
-export default function CardEditModal({ card, board, onSave, onDelete, onClose, focusDescription }: CardEditModalProps) {
-  const [title, setTitle] = useState(card.title);
-  const [description, setDescription] = useState(card.description || '');
-  const [column, setColumn] = useState(card.column);
+
+export default function CardEditModal({ card, board, allCards = [], onSave, onDelete, onClose, focusDescription }: CardEditModalProps) {
+  // Only fields the user has actually touched live in `edits`; everything else
+  // renders straight from `card`. That way a card that changes underneath the
+  // open modal (a branch switch, another client, an edit on disk) is never
+  // written back from stale state when the modal closes — see kan issue #12.
+  const [edits, setEdits] = useState<CardEdits>({});
   const [saving, setSaving] = useState(false);
+
+  const title = edits.title ?? card.title;
+  const description = edits.description ?? card.description ?? '';
+  const column = edits.column ?? card.column;
+  const parent = edits.parent ?? card.parent ?? '';
+
+  const setTitle = useCallback((value: string) => setEdits((prev) => ({ ...prev, title: value })), []);
+  const setDescription = useCallback((value: string) => setEdits((prev) => ({ ...prev, description: value })), []);
+  const setColumn = useCallback((value: string) => setEdits((prev) => ({ ...prev, column: value })), []);
+  const setParent = useCallback((value: string) => setEdits((prev) => ({ ...prev, parent: value })), []);
   const [showHistory, setShowHistory] = useState(false);
 
   // Column transitions, oldest first. Reflects the saved card (not the unsaved
@@ -52,6 +69,17 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
   const columnSince =
     columnHistory.length > 0 ? columnHistory[columnHistory.length - 1].at : card.created_at_millis;
 
+  // Parent candidates: every other card on the board that wouldn't create a
+  // cycle (i.e. not this card and not one of its descendants).
+  const parentOptions = useMemo(
+    () => allCards.filter((c) => c.id !== card.id && !isSelfOrDescendant(c.id, card.id, allCards)),
+    [allCards, card.id]
+  );
+  const childCount = useMemo(
+    () => allCards.filter((c) => c.parent === card.id).length,
+    [allCards, card.id]
+  );
+
   // Comment state
   const [comments, setComments] = useState<Comment[]>(card.comments || []);
   const [newCommentBody, setNewCommentBody] = useState('');
@@ -59,8 +87,9 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
   const [editingCommentBody, setEditingCommentBody] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
 
-  // Custom field states - initialized from card
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>(() => {
+  // Custom field values shown in the editor: the card's current values, with
+  // the user's edits laid over the top.
+  const customFieldValues = useMemo(() => {
     const values: Record<string, unknown> = {};
     if (board.custom_fields) {
       for (const fieldName of Object.keys(board.custom_fields)) {
@@ -70,8 +99,8 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
         }
       }
     }
-    return values;
-  });
+    return { ...values, ...edits.customFields };
+  }, [board.custom_fields, card, edits.customFields]);
 
   // Drag state - initialize from saved state
   const [position, setPosition] = useState(savedModalState.position);
@@ -104,30 +133,15 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
     }
   }, [adjustTextareaHeight]);
 
-  // Calculate hasChanges early so it can be used in effects
-  const hasChanges = useMemo(() => {
-    if (title !== card.title) return true;
-    if (description !== (card.description || '')) return true;
-    if (column !== card.column) return true;
+  // What this modal would actually write: edited fields that still differ from
+  // the card as it stands right now. Null when there is nothing to save, which
+  // also drives the Save/Close button and the save-on-close path.
+  const pendingUpdates = useMemo(
+    () => buildCardUpdate(card, edits, board.custom_fields),
+    [card, edits, board.custom_fields]
+  );
 
-    // Check custom fields
-    if (board.custom_fields) {
-      for (const fieldName of Object.keys(board.custom_fields)) {
-        const originalValue = getFieldValue(card, fieldName);
-        const currentValue = customFieldValues[fieldName];
-
-        const fieldType = board.custom_fields[fieldName].type;
-        if (fieldType === 'enum-set' || fieldType === 'free-set') {
-          const orig = Array.isArray(originalValue) ? originalValue : [];
-          const curr = Array.isArray(currentValue) ? currentValue : [];
-          if (JSON.stringify(orig.sort()) !== JSON.stringify(curr.sort())) return true;
-        } else {
-          if (originalValue !== currentValue) return true;
-        }
-      }
-    }
-    return false;
-  }, [title, description, column, customFieldValues, card, board.custom_fields]);
+  const hasChanges = pendingUpdates !== null;
 
   // Save state when it changes
   useEffect(() => {
@@ -203,34 +217,22 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
   };
 
   const handleCustomFieldChange = useCallback((fieldName: string, value: unknown) => {
-    setCustomFieldValues((prev) => ({ ...prev, [fieldName]: value }));
+    setEdits((prev) => ({ ...prev, customFields: { ...prev.customFields, [fieldName]: value } }));
   }, []);
 
   // Core save logic without closing the modal
   const performSave = useCallback(async () => {
     if (!title.trim()) return;
+    if (!pendingUpdates) return;
 
     setSaving(true);
     try {
-      const updates: UpdateCardInput = {
-        title: title.trim(),
-        description: description.trim(),
-        column,
-      };
-
-      // Build custom_fields for update
-      if (board.custom_fields && Object.keys(customFieldValues).length > 0) {
-        const apiFields = toApiFieldValues(customFieldValues, board.custom_fields);
-        if (Object.keys(apiFields).length > 0) {
-          updates.custom_fields = apiFields;
-        }
-      }
-
-      await onSave(updates);
+      await onSave(pendingUpdates);
+      setEdits({}); // saved — go back to tracking the card
     } finally {
       setSaving(false);
     }
-  }, [title, description, column, customFieldValues, board.custom_fields, onSave]);
+  }, [title, pendingUpdates, onSave]);
 
   const handleSave = useCallback(async () => {
     await performSave();
@@ -592,6 +594,41 @@ export default function CardEditModal({ card, board, onSave, onDelete, onClose, 
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 In this column for {formatDuration(Date.now() - columnSince)}
               </p>
+            </div>
+
+            {/* Epic (parent card). Cards sharing a parent render as one group on
+                the board, so this is how a card joins or leaves an epic. */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Epic</label>
+              <div className="flex items-center gap-2">
+                {parent && (
+                  <span
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: epicColor(parent) }}
+                    title="Epic color on the board"
+                  />
+                )}
+                <select
+                  value={parent}
+                  onChange={(e) => setParent(e.target.value)}
+                  // A focused native select changes value on wheel, and this
+                  // modal saves on close — don't let a scroll re-parent a card.
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="w-full min-w-0 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">No epic</option>
+                  {parentOptions.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {childCount > 0 && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  This card is an epic with {childCount} card{childCount === 1 ? '' : 's'} under it.
+                </p>
+              )}
             </div>
 
             {/* Custom fields */}

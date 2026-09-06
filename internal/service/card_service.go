@@ -113,6 +113,17 @@ func (s *CardService) Add(input AddCardInput) (*model.Card, []*HookResult, error
 	}
 	position := computePosition(colCards, idx)
 
+	// Card references are stored as canonical IDs, not aliases: an alias moves
+	// when a card is retitled, and kan doctor resolves parents by ID.
+	parent := input.Parent
+	if parent != "" {
+		parentCard, err := s.FindByIDOrAlias(input.BoardName, parent)
+		if err != nil {
+			return nil, nil, fmt.Errorf("parent card not found: %s", parent)
+		}
+		parent = parentCard.ID
+	}
+
 	// Generate ID and alias
 	cardID := id.Generate(id.Card)
 	alias, err := s.aliasService.GenerateAlias(input.BoardName, input.Title, "")
@@ -127,7 +138,7 @@ func (s *CardService) Add(input AddCardInput) (*model.Card, []*HookResult, error
 		AliasExplicit:   false,
 		Title:           input.Title,
 		Description:     input.Description,
-		Parent:          input.Parent,
+		Parent:          parent,
 		Creator:         input.Creator,
 		CreatedAtMillis: now,
 		Column:          column,
@@ -480,16 +491,17 @@ func (s *CardService) Edit(input EditCardInput) (*model.Card, error) {
 		needsUpdate = true
 	}
 
-	// Handle parent change
+	// Handle parent change. Stored as the parent's canonical ID (see Add).
 	if input.Parent != nil {
 		if *input.Parent != "" {
-			// Validate parent exists
-			_, err := s.FindByIDOrAlias(input.BoardName, *input.Parent)
+			parentCard, err := s.FindByIDOrAlias(input.BoardName, *input.Parent)
 			if err != nil {
 				return nil, fmt.Errorf("parent card not found: %s", *input.Parent)
 			}
+			card.Parent = parentCard.ID
+		} else {
+			card.Parent = ""
 		}
-		card.Parent = *input.Parent
 		needsUpdate = true
 	}
 

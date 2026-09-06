@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { CompactModeProvider } from './contexts/CompactModeContext'
 import { SlimModeProvider } from './contexts/SlimModeContext'
+import { EpicModeProvider } from './contexts/EpicModeContext'
 import { ToastProvider } from './contexts/ToastContext'
 import ToastContainer from './components/ToastContainer'
 
@@ -13,10 +14,12 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider>
       <CompactModeProvider>
         <SlimModeProvider>
-          <ToastProvider>
-            <App />
-            <ToastContainer />
-          </ToastProvider>
+          <EpicModeProvider>
+            <ToastProvider>
+              <App />
+              <ToastContainer />
+            </ToastProvider>
+          </EpicModeProvider>
         </SlimModeProvider>
       </CompactModeProvider>
     </ThemeProvider>

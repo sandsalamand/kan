@@ -3,7 +3,9 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Card, Column as ColumnType, BoardConfig, UpdateColumnInput } from '../api/types';
+import type { EpicNode } from '../utils/epicGroups';
 import CardComponent from './Card';
+import EpicGroup from './EpicGroup';
 import ConfirmationModal from './ConfirmationModal';
 import { useToast } from '../contexts/ToastContext';
 import { useCompactMode } from '../contexts/CompactModeContext';
@@ -84,7 +86,11 @@ function ColumnDescriptionTooltip({ description }: { description: string }) {
 
 interface ColumnProps {
   column: ColumnType;
+  /** The column's cards in render order. With epic grouping on, this is the
+      flattened order of `layout`, so index math stays in sync with the screen. */
   cards: Card[];
+  /** Epic-grouped render tree. Null when grouping is off (flat card list). */
+  layout?: EpicNode[] | null;
   board: BoardConfig;
   highlightedCardId?: string | null;
   isAddingCard: boolean;
@@ -117,6 +123,7 @@ interface ColumnProps {
 export default function Column({
   column,
   cards,
+  layout,
   board,
   highlightedCardId,
   isAddingCard,
@@ -533,31 +540,72 @@ export default function Column({
               </div>
             );
 
+            const renderCard = (card: Card) => (
+              <CardComponent
+                key={card.id}
+                card={card}
+                board={board}
+                onClick={() => onCardClick(card)}
+                onDelete={() => onDeleteCard(card.id)}
+                onAdvance={onAdvanceCard ? () => onAdvanceCard(card.id) : undefined}
+                onContextMenu={onCardContextMenu ? (e) => onCardContextMenu(card, e) : undefined}
+                onSaveTitle={onSaveCardTitle ? (newTitle: string) => onSaveCardTitle(card.id, newTitle) : undefined}
+                forceEdit={forceEditCardId === card.id}
+                onForceEditDone={onForceEditDone}
+                // Show as placeholder if it's being dragged from this column
+                isPlaceholder={activeCard !== null && activeCard.id === card.id}
+                isHighlighted={card.id === highlightedCardId}
+              />
+            );
+
+            // Epic-grouped rendering: nodes nest, so the drop placeholder lands
+            // between top-level blocks rather than inside someone's epic.
+            if (layout) {
+              const renderNode = (node: EpicNode): React.ReactNode => {
+                if (node.kind === 'card') return renderCard(node.card);
+                return (
+                  <EpicGroup
+                    key={`epic-${node.epicId}`}
+                    node={node}
+                    column={column.name}
+                    isDragActive={activeCard !== null}
+                    onOpenEpic={node.epic ? () => onCardClick(node.epic!) : undefined}
+                    head={node.head ? renderCard(node.head) : undefined}
+                  >
+                    {node.children.map(renderNode)}
+                  </EpicGroup>
+                );
+              };
+
+              // Cards rendered by a node, so the placeholder can be placed by
+              // the same flat index the drag logic works in.
+              const nodeSize = (node: EpicNode): number =>
+                node.kind === 'card' ? 1 : (node.head ? 1 : 0) + node.count;
+
+              let rendered = 0;
+              let placeholderPlaced = false;
+              for (const node of layout) {
+                if (isReceivingCard && !placeholderPlaced && rendered >= insertIndex) {
+                  elements.push(renderPlaceholder());
+                  placeholderPlaced = true;
+                }
+                elements.push(renderNode(node));
+                rendered += nodeSize(node);
+              }
+              if (isReceivingCard && !placeholderPlaced) {
+                elements.push(renderPlaceholder());
+              }
+
+              return elements;
+            }
+
             cards.forEach((card, idx) => {
               // Insert placeholder before this card if needed
               if (isReceivingCard && idx === insertIndex) {
                 elements.push(renderPlaceholder());
               }
 
-              // Show as placeholder if it's being dragged from this column
-              const isBeingDragged = activeCard !== null && activeCard.id === card.id;
-
-              elements.push(
-                <CardComponent
-                  key={card.id}
-                  card={card}
-                  board={board}
-                  onClick={() => onCardClick(card)}
-                  onDelete={() => onDeleteCard(card.id)}
-                  onAdvance={onAdvanceCard ? () => onAdvanceCard(card.id) : undefined}
-                  onContextMenu={onCardContextMenu ? (e) => onCardContextMenu(card, e) : undefined}
-                  onSaveTitle={onSaveCardTitle ? (newTitle: string) => onSaveCardTitle(card.id, newTitle) : undefined}
-                  forceEdit={forceEditCardId === card.id}
-                  onForceEditDone={onForceEditDone}
-                  isPlaceholder={isBeingDragged}
-                  isHighlighted={card.id === highlightedCardId}
-                />
-              );
+              elements.push(renderCard(card));
             });
 
             // Insert placeholder at end if needed

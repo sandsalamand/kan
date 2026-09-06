@@ -1399,6 +1399,53 @@ func TestCardService_Edit_Parent(t *testing.T) {
 	}
 }
 
+// Parent refs are stored as canonical card IDs even when the caller passes an
+// alias: an alias moves when a card is retitled, and doctor resolves by ID.
+func TestCardService_Edit_Parent_AliasStoredAsID(t *testing.T) {
+	service, _, boardStore := setupCardService()
+	boardStore.addBoard(testBoardConfig("main"))
+
+	parentCard, _, _ := service.Add(AddCardInput{BoardName: "main", Title: "Parent", Column: "backlog"})
+	childCard, _, _ := service.Add(AddCardInput{BoardName: "main", Title: "Child", Column: "backlog"})
+
+	updated, err := service.Edit(EditCardInput{
+		BoardName:     "main",
+		CardIDOrAlias: childCard.ID,
+		Parent:        &parentCard.Alias,
+	})
+	if err != nil {
+		t.Fatalf("Edit failed: %v", err)
+	}
+
+	if updated.Parent != parentCard.ID {
+		t.Errorf("Expected parent stored as ID %q, got %q", parentCard.ID, updated.Parent)
+	}
+}
+
+func TestCardService_Add_Parent_AliasStoredAsID(t *testing.T) {
+	service, _, boardStore := setupCardService()
+	boardStore.addBoard(testBoardConfig("main"))
+
+	parentCard, _, _ := service.Add(AddCardInput{BoardName: "main", Title: "Parent", Column: "backlog"})
+	child, _, err := service.Add(AddCardInput{BoardName: "main", Title: "Child", Column: "backlog", Parent: parentCard.Alias})
+	if err != nil {
+		t.Fatalf("Add failed: %v", err)
+	}
+
+	if child.Parent != parentCard.ID {
+		t.Errorf("Expected parent stored as ID %q, got %q", parentCard.ID, child.Parent)
+	}
+}
+
+func TestCardService_Add_Parent_NotFound(t *testing.T) {
+	service, _, boardStore := setupCardService()
+	boardStore.addBoard(testBoardConfig("main"))
+
+	if _, _, err := service.Add(AddCardInput{BoardName: "main", Title: "Child", Column: "backlog", Parent: "nope"}); err == nil {
+		t.Error("Expected error for unknown parent, got nil")
+	}
+}
+
 func TestCardService_Edit_Parent_Clear(t *testing.T) {
 	service, _, boardStore := setupCardService()
 	boardStore.addBoard(testBoardConfig("main"))

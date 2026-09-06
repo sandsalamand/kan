@@ -428,6 +428,7 @@ type UpdateCardRequest struct {
 	Title        *string        `json:"title,omitempty"`
 	Description  *string        `json:"description,omitempty"`
 	Column       *string        `json:"column,omitempty"`
+	Parent       *string        `json:"parent,omitempty"` // "" clears the parent
 	CustomFields map[string]any `json:"custom_fields,omitempty"`
 }
 
@@ -469,11 +470,12 @@ func (h *Handler) UpdateCard(w http.ResponseWriter, r *http.Request) {
 		CardIDOrAlias: card.ID,
 		Title:         req.Title,
 		Description:   req.Description,
+		Parent:        req.Parent,
 		CustomFields:  stringifyCustomFields(req.CustomFields),
 	}
 
 	// Only call Edit if there are changes to apply
-	if req.Title != nil || req.Description != nil || len(req.CustomFields) > 0 {
+	if req.Title != nil || req.Description != nil || req.Parent != nil || len(req.CustomFields) > 0 {
 		updated, err := h.ctx().CardService.Edit(input)
 		if err != nil {
 			Error(w, err)
