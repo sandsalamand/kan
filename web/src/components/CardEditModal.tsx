@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Card, BoardConfig, UpdateCardInput, Comment } from '../api/types';
 import { createComment, editComment, deleteComment } from '../api/cards';
 import { epicColor, isSelfOrDescendant } from '../utils/epicGroups';
-import { toApiFieldValues } from '../utils/customFields';
+import type { CardEdits } from '../utils/cardEdits';
+import { buildCardUpdate } from '../utils/cardEdits';
 import { formatDuration } from '../utils/duration';
 import MarkdownField from './MarkdownField';
 import MarkdownView from './MarkdownView';
@@ -40,11 +41,22 @@ function getFieldValue(card: Card, fieldName: string): unknown {
 
 
 export default function CardEditModal({ card, board, allCards = [], onSave, onDelete, onClose, focusDescription }: CardEditModalProps) {
-  const [title, setTitle] = useState(card.title);
-  const [description, setDescription] = useState(card.description || '');
-  const [column, setColumn] = useState(card.column);
-  const [parent, setParent] = useState(card.parent || '');
+  // Only fields the user has actually touched live in `edits`; everything else
+  // renders straight from `card`. That way a card that changes underneath the
+  // open modal (a branch switch, another client, an edit on disk) is never
+  // written back from stale state when the modal closes — see kan issue #12.
+  const [edits, setEdits] = useState<CardEdits>({});
   const [saving, setSaving] = useState(false);
+
+  const title = edits.title ?? card.title;
+  const description = edits.description ?? card.description ?? '';
+  const column = edits.column ?? card.column;
+  const parent = edits.parent ?? card.parent ?? '';
+
+  const setTitle = useCallback((value: string) => setEdits((prev) => ({ ...prev, title: value })), []);
+  const setDescription = useCallback((value: string) => setEdits((prev) => ({ ...prev, description: value })), []);
+  const setColumn = useCallback((value: string) => setEdits((prev) => ({ ...prev, column: value })), []);
+  const setParent = useCallback((value: string) => setEdits((prev) => ({ ...prev, parent: value })), []);
   const [showHistory, setShowHistory] = useState(false);
 
   // Column transitions, oldest first. Reflects the saved card (not the unsaved
@@ -75,8 +87,9 @@ export default function CardEditModal({ card, board, allCards = [], onSave, onDe
   const [editingCommentBody, setEditingCommentBody] = useState('');
   const [commentSaving, setCommentSaving] = useState(false);
 
-  // Custom field states - initialized from card
-  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>(() => {
+  // Custom field values shown in the editor: the card's current values, with
+  // the user's edits laid over the top.
+  const customFieldValues = useMemo(() => {
     const values: Record<string, unknown> = {};
     if (board.custom_fields) {
       for (const fieldName of Object.keys(board.custom_fields)) {
@@ -86,8 +99,8 @@ export default function CardEditModal({ card, board, allCards = [], onSave, onDe
         }
       }
     }
-    return values;
-  });
+    return { ...values, ...edits.customFields };
+  }, [board.custom_fields, card, edits.customFields]);
 
   // Drag state - initialize from saved state
   const [position, setPosition] = useState(savedModalState.position);
@@ -120,31 +133,15 @@ export default function CardEditModal({ card, board, allCards = [], onSave, onDe
     }
   }, [adjustTextareaHeight]);
 
-  // Calculate hasChanges early so it can be used in effects
-  const hasChanges = useMemo(() => {
-    if (title !== card.title) return true;
-    if (description !== (card.description || '')) return true;
-    if (column !== card.column) return true;
-    if (parent !== (card.parent || '')) return true;
+  // What this modal would actually write: edited fields that still differ from
+  // the card as it stands right now. Null when there is nothing to save, which
+  // also drives the Save/Close button and the save-on-close path.
+  const pendingUpdates = useMemo(
+    () => buildCardUpdate(card, edits, board.custom_fields),
+    [card, edits, board.custom_fields]
+  );
 
-    // Check custom fields
-    if (board.custom_fields) {
-      for (const fieldName of Object.keys(board.custom_fields)) {
-        const originalValue = getFieldValue(card, fieldName);
-        const currentValue = customFieldValues[fieldName];
-
-        const fieldType = board.custom_fields[fieldName].type;
-        if (fieldType === 'enum-set' || fieldType === 'free-set') {
-          const orig = Array.isArray(originalValue) ? originalValue : [];
-          const curr = Array.isArray(currentValue) ? currentValue : [];
-          if (JSON.stringify(orig.sort()) !== JSON.stringify(curr.sort())) return true;
-        } else {
-          if (originalValue !== currentValue) return true;
-        }
-      }
-    }
-    return false;
-  }, [title, description, column, parent, customFieldValues, card, board.custom_fields]);
+  const hasChanges = pendingUpdates !== null;
 
   // Save state when it changes
   useEffect(() => {
@@ -220,40 +217,22 @@ export default function CardEditModal({ card, board, allCards = [], onSave, onDe
   };
 
   const handleCustomFieldChange = useCallback((fieldName: string, value: unknown) => {
-    setCustomFieldValues((prev) => ({ ...prev, [fieldName]: value }));
+    setEdits((prev) => ({ ...prev, customFields: { ...prev.customFields, [fieldName]: value } }));
   }, []);
 
   // Core save logic without closing the modal
   const performSave = useCallback(async () => {
     if (!title.trim()) return;
+    if (!pendingUpdates) return;
 
     setSaving(true);
     try {
-      const updates: UpdateCardInput = {
-        title: title.trim(),
-        description: description.trim(),
-        column,
-      };
-
-      // Only send parent when it actually changed — "" is a real value that
-      // clears the parent, so it can't be sent unconditionally.
-      if (parent !== (card.parent || '')) {
-        updates.parent = parent;
-      }
-
-      // Build custom_fields for update
-      if (board.custom_fields && Object.keys(customFieldValues).length > 0) {
-        const apiFields = toApiFieldValues(customFieldValues, board.custom_fields);
-        if (Object.keys(apiFields).length > 0) {
-          updates.custom_fields = apiFields;
-        }
-      }
-
-      await onSave(updates);
+      await onSave(pendingUpdates);
+      setEdits({}); // saved — go back to tracking the card
     } finally {
       setSaving(false);
     }
-  }, [title, description, column, parent, card.parent, customFieldValues, board.custom_fields, onSave]);
+  }, [title, pendingUpdates, onSave]);
 
   const handleSave = useCallback(async () => {
     await performSave();
