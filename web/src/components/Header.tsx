@@ -2,6 +2,7 @@ import ThemeToggle from './ThemeToggle';
 import CompactToggle from './CompactToggle';
 import EpicToggle from './EpicToggle';
 import SlimToggle from './SlimToggle';
+import SearchBar from './SearchBar';
 import { useSlimMode } from '../contexts/SlimModeContext';
 import type { BoardConfig } from '../api/types';
 
@@ -18,6 +19,12 @@ interface HeaderProps {
   onRefresh: () => void;
   onNewCard?: () => void;
   syncStatus?: SyncStatus;
+  // Search bar (fuzzy card filter)
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  searchMatchCount?: number;
+  searchTotalCount?: number;
+  searchShortcutEnabled?: boolean;
   // Custom-field sort control
   customFields?: BoardConfig['custom_fields'];
   sortField?: string;
@@ -62,6 +69,11 @@ export default function Header({
   onRefresh,
   onNewCard,
   syncStatus,
+  searchQuery = '',
+  onSearchChange,
+  searchMatchCount = 0,
+  searchTotalCount = 0,
+  searchShortcutEnabled = true,
   customFields,
   sortField = '',
   sortDescending = false,
@@ -74,8 +86,8 @@ export default function Header({
   // to "Manual order" so the dropdown never shows a blank/invalid selection.
   const effectiveSortField = sortFieldNames.includes(sortField) ? sortField : '';
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between">
-      <div className="flex items-center gap-4">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center gap-4">
+      <div className="flex items-center gap-4 shrink-0">
         <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Kan</h1>
         {boards.length > 1 && (
           <select
@@ -106,7 +118,19 @@ export default function Header({
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      {/* Search bar, centered in the space the two button groups leave */}
+      <div className="flex-1 flex justify-center min-w-0">
+        {onSearchChange && (
+          <SearchBar
+            query={searchQuery}
+            onQueryChange={onSearchChange}
+            matchCount={searchMatchCount}
+            totalCount={searchTotalCount}
+            shortcutEnabled={searchShortcutEnabled}
+          />
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
         {sortFieldNames.length > 0 && onSortFieldChange && (
           <div className="flex items-center gap-1" title="Sort cards within each column by a custom field (view only — does not change saved order)">
             <select

@@ -9,7 +9,8 @@ import { COMPACT_COMMAND, SLIM_COMMAND, EPICS_COMMAND } from './hooks/omnibarCon
 import type { SlashCommand } from './hooks/omnibarConstants';
 import { useProject, usePageTitle, useFavicon } from './hooks/useProject';
 import { useUrlState } from './hooks/useUrlState';
-import { cardMatchesQuery } from './utils/fuzzyMatch';
+import { useSearchQuery } from './hooks/useSearchQuery';
+import { filterCards } from './utils/fuzzyMatch';
 import { sortCards } from './utils/cardSort';
 import Header from './components/Header';
 import Board from './components/Board';
@@ -69,6 +70,7 @@ function BoardApp() {
   const { isSlim, toggleSlim } = useSlimMode();
   const { toggleGrouped } = useEpicMode();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useSearchQuery();
   const { project } = useProject(refreshKey);
 
   // Custom-field view sort, persisted in the URL (?sort=<field>&sortDir=asc|desc)
@@ -160,11 +162,24 @@ function BoardApp() {
   usePageTitle(project?.name, boardName);
   useFavicon();
 
-  // Compute filtered cards for navigation
-  const filteredCards = useMemo(() => {
-    if (!board || !omnibar.query.trim() || omnibar.mode === 'boards' || omnibar.mode === 'themes' || slashAutocomplete.isActive) return cards;
-    return cards.filter((card) => cardMatchesQuery(card, omnibar.query.trim(), board));
-  }, [cards, omnibar.query, omnibar.mode, board, slashAutocomplete.isActive]);
+  // The omnibar's query only filters the board while it's searching cards —
+  // not when it's switching boards/themes or typing a slash command.
+  const omnibarFilter =
+    omnibar.mode === 'cards' && !slashAutocomplete.isActive ? omnibar.query : '';
+
+  // Cards matching the search bar alone — what the search bar's counter shows,
+  // so it doesn't jump around when the omnibar narrows things further.
+  const searchMatchedCards = useMemo(
+    () => (board ? filterCards(cards, board, searchQuery, '') : cards),
+    [cards, board, searchQuery]
+  );
+
+  // Narrowed by the omnibar too: the set actually on screen, which is what
+  // keyboard navigation walks.
+  const filteredCards = useMemo(
+    () => (board ? filterCards(searchMatchedCards, board, '', omnibarFilter) : searchMatchedCards),
+    [searchMatchedCards, board, omnibarFilter]
+  );
 
   // Group filtered cards by column (in column order) for navigation. Mirror the
   // board's view sort so keyboard nav follows the same order shown on screen.
@@ -600,6 +615,11 @@ function BoardApp() {
           reconnecting: fileSyncReconnecting,
           failed: fileSyncFailed,
         }}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchMatchCount={searchMatchedCards.length}
+        searchTotalCount={cards.length}
+        searchShortcutEnabled={!omnibar.isOpen && !cardId}
         customFields={board?.custom_fields}
         sortField={sortField}
         sortDescending={sortDescending}
@@ -619,7 +639,8 @@ function BoardApp() {
           <Board
             board={board}
             cards={cards}
-            filterQuery={omnibar.mode === 'cards' && !slashAutocomplete.isActive ? omnibar.query : ''}
+            searchQuery={searchQuery}
+            filterQuery={omnibarFilter}
             highlightedCardId={omnibar.isOpen && omnibar.mode === 'cards' ? omnibar.highlightedCardId : null}
             onMoveCard={moveCard}
             onCreateCard={createCard}
@@ -658,7 +679,9 @@ function BoardApp() {
           mode={omnibar.mode}
           query={omnibar.query}
           matchCount={filteredCards.length}
-          totalCount={cards.length}
+          // Counts are relative to the search bar's results, since that's the
+          // set the omnibar is narrowing.
+          totalCount={searchMatchedCards.length}
           hasHighlight={omnibar.highlightedCardId !== null}
           isModalOpen={!!cardId}
           boardEntries={boardSwitcher.filteredBoards}

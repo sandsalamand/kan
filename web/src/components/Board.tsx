@@ -4,7 +4,7 @@ import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection, D
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import type { BoardConfig, Card, Column as ColumnType, CreateCardInput, CreateCardResponse, UpdateCardInput, CreateColumnInput, UpdateColumnInput } from '../api/types';
 import type { UndoAction } from '../hooks/useUndo';
-import { cardMatchesQuery } from '../utils/fuzzyMatch';
+import { filterCards } from '../utils/fuzzyMatch';
 import { toApiFieldValue } from '../utils/customFields';
 import { sortCards } from '../utils/cardSort';
 import type { EpicNode } from '../utils/epicGroups';
@@ -31,6 +31,9 @@ interface PanelTarget {
 interface BoardProps {
   board: BoardConfig;
   cards: Card[];
+  /** Header search bar query (fuzzy). */
+  searchQuery?: string;
+  /** Omnibar query (substring), narrowing the search results further. */
   filterQuery?: string;
   highlightedCardId?: string | null;
   onMoveCard: (cardId: string, column: string, position?: number) => Promise<void>;
@@ -54,6 +57,7 @@ interface BoardProps {
 export default function Board({
   board,
   cards,
+  searchQuery = '',
   filterQuery = '',
   highlightedCardId,
   onMoveCard,
@@ -107,11 +111,12 @@ export default function Board({
 
   const columnNames = board.columns.map((c) => c.name);
 
-  // Filter cards based on search query
-  const filteredCards = useMemo(() => {
-    if (!filterQuery.trim()) return cards;
-    return cards.filter((card) => cardMatchesQuery(card, filterQuery.trim(), board));
-  }, [cards, filterQuery, board]);
+  // Filter cards by the header search bar and the omnibar query
+  const isFiltering = searchQuery.trim().length > 0 || filterQuery.trim().length > 0;
+  const filteredCards = useMemo(
+    () => filterCards(cards, board, searchQuery, filterQuery),
+    [cards, board, searchQuery, filterQuery]
+  );
 
   // Only honor a sort field the current board actually defines (the field may
   // be carried over in the URL from another board, or removed from config).
@@ -890,7 +895,7 @@ export default function Board({
           ? "flex flex-col gap-4 p-4 h-full overflow-y-auto"
           : "flex gap-4 p-4 h-full overflow-x-auto"
         }>
-          {filteredCards.length === 0 && filterQuery.trim() && (
+          {filteredCards.length === 0 && isFiltering && (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-gray-500 dark:text-gray-400">No cards match your filter</p>
             </div>
@@ -935,7 +940,7 @@ export default function Board({
           </SortableContext>
 
           {/* Add Column Button/Form */}
-          {onCreateColumn && !filterQuery.trim() && (
+          {onCreateColumn && !isFiltering && (
             <div className={isSlim ? "w-full" : "flex-1 min-w-64 max-w-sm"}>
               {isAddingColumn ? (
                 <form

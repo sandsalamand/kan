@@ -31,13 +31,13 @@ kan serve
 
 That's it. Your board opens in the browser.
 
-From there, the web UI handles everything - add cards, drag them between columns, click to edit, use ⌘K to quick-search. Most users never need to touch the CLI for anything more.
+From there, the web UI handles everything - add cards, drag them between columns, click to edit, filter the board from the search bar (`/`) or quick-search with ⌘K. Most users never need to touch the CLI for anything more.
 
 For scripting or automation (CI, AI agents, etc.), there's a full [CLI](/docs/cli) with commands to add, edit, move, and query cards programmatically.
 
 ## Topics
 
-- [Keyboard Shortcuts](/docs/shortcuts) - Omnibar search, navigation, and editor shortcuts
+- [Keyboard Shortcuts](/docs/shortcuts) - Search bar, omnibar, navigation, and editor shortcuts
 - [Editing Cards](/docs/editing) - Markdown support and formatting
 - [Custom Fields](/docs/custom-fields) - Define enum, tags, string, and date fields
 - [Configuration](/docs/configuration) - Board structure, columns, and display options

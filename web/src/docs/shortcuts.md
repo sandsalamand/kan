@@ -1,5 +1,33 @@
 # Keyboard Shortcuts
 
+## Search Bar
+
+The search bar in the top bar filters the board as you type. Press **/** to focus it from anywhere on the board.
+
+| Shortcut | Action |
+|----------|--------|
+| / | Focus the search bar |
+| Escape | Clear the query (press again to leave the search bar) |
+
+The counter on the right of the bar shows how many cards match; ✕ clears the query.
+
+### How Fuzzy Matching Works
+
+Each word in the query has to match the card somewhere, and different words may match different fields. Against **titles, aliases and custom field values**, a word matches fuzzily: it's split into runs of consecutive characters, where the first run can start anywhere and every later run has to start at a word boundary (a space, punctuation, a camelCase hump, a digit after a letter).
+
+- `payout` matches "Tutor **payout** dashboard" - a plain substring is one run
+- `ayou` matches "Tutor p**ayou**t dashboard" - the first run can start mid-word
+- `wsp` matches "**W**ise **s**elf-service **p**ayout" - word initials
+- `wisepay` matches "**Wise** self-service **pay**out" - two runs
+- `wa` matches "**W**hats**A**pp lead capture" - camelCase counts as a boundary
+- `fg` does *not* match "fixing a bug" - `g` neither continues `f` nor starts a word
+
+That last case is the point of anchoring runs to word boundaries: any short query is a plain subsequence of almost any long-enough title, so matching without the anchor buries the cards you meant to find.
+
+**Ids and descriptions match by substring only.** Fuzzing an opaque id just turns up coincidences, and descriptions are long enough that even anchored fuzzy matching gets loose.
+
+The query lives in the URL (`?q=`), so a filtered board survives a reload and can be shared as a link.
+
 ## Quick Search (Omnibar)
 
 Press **⌘K** to open quick search. Start typing to filter cards in real-time.
@@ -25,7 +53,7 @@ Type `/` in quick search to see available commands with autocomplete. Use ↑ �
 
 ### How Filtering Works
 
-Quick search uses **word-based substring matching**. Each word in your query must appear as a consecutive substring somewhere in the card. Multiple words are AND'd together, but can match different fields. For example:
+Quick search uses **word-based substring matching** - stricter than the search bar's fuzzy matching, and it narrows within whatever the search bar has already filtered to. Each word in your query must appear as a consecutive substring somewhere in the card. Multiple words are AND'd together, but can match different fields. For example:
 
 - `bug` matches "fixing a **bug**" and "de**bug**ging"
 - `fix bug` matches a card with "**fix** login" in title and "**bug** report" in description
@@ -38,7 +66,7 @@ The search looks across all card fields: title, alias, description, and any cust
 - Cards that don't match your query disappear from the board
 - Empty columns are hidden while filtering
 - Drag-and-drop continues to work with the filtered set
-- The filter clears when you close quick search
+- The quick search filter clears when you close quick search; the search bar's query stays until you clear it
 
 ## View Modes
 
