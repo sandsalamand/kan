@@ -18,6 +18,7 @@ interface HeaderProps {
   onSelectBoard: (board: string) => void;
   onRefresh: () => void;
   onNewCard?: () => void;
+  onAddColumn?: () => void;
   syncStatus?: SyncStatus;
   // Search bar (fuzzy card filter)
   searchQuery?: string;
@@ -68,6 +69,7 @@ export default function Header({
   onSelectBoard,
   onRefresh,
   onNewCard,
+  onAddColumn,
   syncStatus,
   searchQuery = '',
   onSearchChange,
@@ -115,6 +117,17 @@ export default function Header({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             New Card
+          </button>
+        )}
+        {!isSlim && onAddColumn && (
+          <button
+            onClick={onAddColumn}
+            className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-gray-200/50 dark:bg-gray-800/50 hover:bg-gray-300 dark:hover:bg-gray-700 px-3 py-1.5 rounded-md transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Column
           </button>
         )}
       </div>

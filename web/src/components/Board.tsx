@@ -41,6 +41,10 @@ interface BoardProps {
   onUpdateCard: (id: string, updates: UpdateCardInput) => Promise<void>;
   onDeleteCard: (id: string) => Promise<void>;
   onCreateColumn?: (input: CreateColumnInput) => Promise<unknown>;
+  isAddingColumn: boolean;
+  newColumnName: string;
+  onNewColumnNameChange: (name: string) => void;
+  onCancelAddColumn: () => void;
   onDeleteColumn?: (columnName: string) => Promise<unknown>;
   onUpdateColumn?: (columnName: string, updates: UpdateColumnInput) => Promise<unknown>;
   onReorderColumns?: (columns: string[]) => Promise<void>;
@@ -65,6 +69,10 @@ export default function Board({
   onUpdateCard,
   onDeleteCard,
   onCreateColumn,
+  isAddingColumn,
+  newColumnName,
+  onNewColumnNameChange,
+  onCancelAddColumn,
   onDeleteColumn,
   onUpdateColumn,
   onReorderColumns,
@@ -81,8 +89,6 @@ export default function Board({
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<ColumnType | null>(null);
   const [addingToColumn, setAddingToColumn] = useState<string | null>(null);
-  const [isAddingColumn, setIsAddingColumn] = useState(false);
-  const [newColumnName, setNewColumnName] = useState('');
   const addColumnInputRef = useRef<HTMLInputElement>(null);
   const addColumnFormRef = useRef<HTMLFormElement>(null);
   // Track which column name is being edited (lifted from Column for stability across re-renders)
@@ -828,8 +834,7 @@ export default function Board({
 
     const handleClickOutside = (e: MouseEvent) => {
       if (addColumnFormRef.current && !addColumnFormRef.current.contains(e.target as Node)) {
-        setIsAddingColumn(false);
-        setNewColumnName('');
+        onCancelAddColumn();
       }
     };
 
@@ -841,7 +846,7 @@ export default function Board({
       clearTimeout(timeoutId);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isAddingColumn]);
+  }, [isAddingColumn, onCancelAddColumn]);
 
   // Number key shortcuts: press 1-9 to start adding a card to column N
   useEffect(() => {
@@ -875,8 +880,7 @@ export default function Board({
 
     try {
       await onCreateColumn({ name: newColumnName.trim().toLowerCase().replace(/\s+/g, '-') });
-      setNewColumnName('');
-      setIsAddingColumn(false);
+      onCancelAddColumn();
     } catch (err) {
       console.error('Failed to create column:', err);
     }
@@ -939,60 +943,44 @@ export default function Board({
             ))}
           </SortableContext>
 
-          {/* Add Column Button/Form */}
-          {onCreateColumn && !isFiltering && (
+          {/* Add Column Form (triggered by the "Add Column" button in the header) */}
+          {onCreateColumn && isAddingColumn && (
             <div className={isSlim ? "w-full" : "flex-1 min-w-64 max-w-sm"}>
-              {isAddingColumn ? (
-                <form
-                  ref={addColumnFormRef}
-                  onSubmit={handleAddColumn}
-                  className="bg-gray-200 dark:bg-gray-800 rounded-lg p-3"
-                >
-                  <input
-                    ref={addColumnInputRef}
-                    type="text"
-                    value={newColumnName}
-                    onChange={(e) => setNewColumnName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') {
-                        setIsAddingColumn(false);
-                        setNewColumnName('');
-                      }
-                    }}
-                    placeholder="Column name..."
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      type="submit"
-                      disabled={!newColumnName.trim()}
-                      className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAddingColumn(false);
-                        setNewColumnName('');
-                      }}
-                      className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  onClick={() => setIsAddingColumn(true)}
-                  className="w-full py-3 px-4 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-gray-200/50 dark:bg-gray-800/50 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Column
-                </button>
-              )}
+              <form
+                ref={addColumnFormRef}
+                onSubmit={handleAddColumn}
+                className="bg-gray-200 dark:bg-gray-800 rounded-lg p-3"
+              >
+                <input
+                  ref={addColumnInputRef}
+                  type="text"
+                  value={newColumnName}
+                  onChange={(e) => onNewColumnNameChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      onCancelAddColumn();
+                    }
+                  }}
+                  placeholder="Column name..."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="submit"
+                    disabled={!newColumnName.trim()}
+                    className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onCancelAddColumn}
+                    className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </div>

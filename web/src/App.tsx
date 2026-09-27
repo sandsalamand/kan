@@ -52,6 +52,8 @@ function BoardApp() {
     fileSyncFailed,
   } = useBoard(boardName, refreshKey);
   const [newlyCreatedCardId, setNewlyCreatedCardId] = useState<string | null>(null);
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState('');
   const omnibar = useOmnibar();
   const { showToast } = useToast();
 
@@ -474,6 +476,15 @@ function BoardApp() {
     }
   }, [board, createCard, openCard]);
 
+  const handleOpenAddColumn = useCallback(() => {
+    setIsAddingColumn(true);
+  }, []);
+
+  const handleCancelAddColumn = useCallback(() => {
+    setIsAddingColumn(false);
+    setNewColumnName('');
+  }, []);
+
   const handleOpenCard = useCallback((id: string, focusDescription?: boolean) => {
     if (focusDescription) {
       setNewlyCreatedCardId(id);
@@ -610,6 +621,7 @@ function BoardApp() {
         onSelectBoard={setBoard}
         onRefresh={refresh}
         onNewCard={board ? handleNewCard : undefined}
+        onAddColumn={board ? handleOpenAddColumn : undefined}
         syncStatus={{
           connected: fileSyncConnected,
           reconnecting: fileSyncReconnecting,
@@ -648,6 +660,10 @@ function BoardApp() {
             onDeleteCard={deleteCard}
             onPushUndo={pushUndo}
             onCreateColumn={createColumn}
+            isAddingColumn={isAddingColumn}
+            newColumnName={newColumnName}
+            onNewColumnNameChange={setNewColumnName}
+            onCancelAddColumn={handleCancelAddColumn}
             onDeleteColumn={deleteColumn}
             onUpdateColumn={updateColumn}
             onReorderColumns={reorderColumns}
