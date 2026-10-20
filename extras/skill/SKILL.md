@@ -320,9 +320,18 @@ kan list -c done                  # Filter by column
 kan list -b myboard               # Filter by board
 kan list --sort priority          # Sort each column by a custom field
 kan list --sort priority --reverse  # Reverse the sort order
+kan list -q "login bug"           # Cards whose title or description has every word
+kan list -f priority=high         # Cards whose custom field matches
+kan list -c todo -f blocked=true -f labels=bug  # Filters combine; all must match
 ```
 
 `--sort <field>` orders cards within each column by a custom field instead of by manual position. For `enum`/`enum-set` fields the order follows the option order in the board config (not alphabetical); cards with no value are listed last. It's a view sort — saved card positions are unchanged.
+
+`--search/-q <text>` keeps cards where every whitespace-separated word appears, case-insensitively, in the title or description (comments are not searched). It searches every column unless `-c` is given, so use it to check for an existing card before adding one.
+
+`--field/-f key=value` keeps cards whose custom field matches; repeat it to require several. It takes the same `key=value` syntax as `kan add -f`. Booleans: an unset field counts as false. `enum-set`/`free-set`: the card's set must contain the value (comma-separated values must all be present). `string`/`enum`/`date`: equality. An empty value (`-f priority=`) matches cards with the field unset. An unknown field name or enum option is an error.
+
+Both filters combine with `-c`, `--sort` and `--json`. Prefer them over piping `kan list --json` through `jq`, which prints whole cards.
 
 ## Showing Card Details
 

@@ -250,6 +250,8 @@ kan list -b features
 kan list -c done
 kan list --sort priority            # order each column by the priority field
 kan list --sort priority --reverse  # high → low instead of low → high
+kan list -q "login bug"             # title or description contains every word
+kan list -c todo -f priority=high   # custom field filter; repeat -f to AND them
 ```
 
 | Flag            | Description                                                |
@@ -258,6 +260,8 @@ kan list --sort priority --reverse  # high → low instead of low → high
 | `-c, --column`  | Filter by column                                           |
 | `-s, --sort`    | Sort cards within each column by a custom field (e.g. `priority`) instead of by manual position |
 | `-r, --reverse` | Reverse the sort order (use with `--sort`)                 |
+| `-q, --search`  | Only cards whose title or description contains every word (case-insensitive) |
+| `-f, --field`   | Only cards whose custom field matches (`key=value`, repeatable, all must match) |
 | `-g, --global`  | Target the designated global board (see [global](#global)) |
 
 `--sort` orders cards by a custom field's value. For `enum`/`enum-set` fields
@@ -266,6 +270,24 @@ the order follows the option order defined in your board config (so
 not alphabetically. Cards missing a value for the field are always listed last,
 in both directions. Sorting is non-destructive — it only changes the listing
 order, never the cards' saved positions.
+
+`--search` splits its text on whitespace and keeps cards where every word
+appears, case-insensitively, in the title or description. Comments are not
+searched. Without `-c` it searches every column, finished ones included, which
+is what you want when checking whether a card already exists.
+
+`--field` uses the same `key=value` syntax as `kan add -f`, and matches by
+field type:
+
+- `boolean`: equality, with an unset field counting as `false`
+- `enum-set` / `free-set`: the card's set contains the value (comma-separated
+  values must all be present)
+- `string` / `enum` / `date`: equality
+
+An empty value (`-f priority=`) matches cards with the field unset. An unknown
+field name, an invalid boolean, or a value that isn't one of an enum's options
+is an error rather than an empty result. Both filters combine with `-c`,
+`--sort` and `--json`.
 
 ### edit
 
