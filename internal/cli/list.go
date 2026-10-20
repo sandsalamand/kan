@@ -2,26 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/amterp/kan/internal/model"
 	"github.com/amterp/ra"
 )
-
-// customFieldNames returns the board's custom field names, sorted, joined for
-// display in error messages.
-func customFieldNames(boardCfg *model.BoardConfig) string {
-	names := make([]string, 0, len(boardCfg.CustomFields))
-	for name := range boardCfg.CustomFields {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	if len(names) == 0 {
-		return "(none defined)"
-	}
-	return strings.Join(names, ", ")
-}
 
 func registerList(parent *ra.Cmd, ctx *CommandContext) {
 	cmd := ra.NewCmd("list")
@@ -58,12 +43,26 @@ func registerList(parent *ra.Cmd, ctx *CommandContext) {
 		SetUsage("Reverse the sort order (use with --sort)").
 		Register(cmd)
 
+	ctx.ListSearch, _ = ra.NewString("search").
+		SetShort("q").
+		SetOptional(true).
+		SetFlagOnly(true).
+		SetUsage("Only cards whose title or description contains every word (case-insensitive; searches all columns unless -c)").
+		Register(cmd)
+
+	ctx.ListFields, _ = ra.NewStringSlice("field").
+		SetShort("f").
+		SetOptional(true).
+		SetFlagOnly(true).
+		SetUsage("Only cards whose custom field matches (key=value, repeatable, all must match; unset booleans count as false)").
+		Register(cmd)
+
 	ctx.ListGlobal = registerGlobalFlag(cmd)
 
 	ctx.ListUsed, _ = parent.RegisterCmd(cmd)
 }
 
-func runList(board, column, sortField string, global, reverse, jsonOutput bool) {
+func runList(board, column, sortField, search string, fields []string, global, reverse, jsonOutput bool) {
 	app, err := NewAppWithOptions(AppOptions{Interactive: true, UseGlobalBoard: global})
 	if err != nil {
 		Fatal(err)
@@ -90,8 +89,13 @@ func runList(board, column, sortField string, global, reverse, jsonOutput bool) 
 	if sortField != "" {
 		if _, ok := boardCfg.CustomFields[sortField]; !ok {
 			Fatal(fmt.Errorf("unknown sort field %q; valid fields: %s",
-				sortField, customFieldNames(boardCfg)))
+				sortField, model.CustomFieldNames(boardCfg)))
 		}
+	}
+
+	fieldFilters, err := model.ParseFieldFilters(fields, boardCfg)
+	if err != nil {
+		Fatal(err)
 	}
 
 	// Get cards
@@ -99,6 +103,7 @@ func runList(board, column, sortField string, global, reverse, jsonOutput bool) 
 	if err != nil {
 		Fatal(err)
 	}
+	cards = model.FilterCards(cards, model.SearchWords(search), fieldFilters)
 
 	if jsonOutput {
 		if err := printJson(NewListOutput(cards)); err != nil {

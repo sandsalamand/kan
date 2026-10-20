@@ -601,7 +601,7 @@ func (s *CardService) validateAndApplyCustomFields(card *model.Card, boardCfg *m
 			if value == "" {
 				delete(card.CustomFields, key)
 			} else {
-				boolVal, err := parseBoolValue(value)
+				boolVal, err := model.ParseBool(value)
 				if err != nil {
 					return kanerr.InvalidField(key, err.Error())
 				}
@@ -719,19 +719,6 @@ func parseSetValues(value string) []string {
 	return result
 }
 
-// parseBoolValue parses a string as a boolean value.
-// Accepts true/false, yes/no, 1/0 (case-insensitive).
-func parseBoolValue(s string) (bool, error) {
-	switch strings.ToLower(s) {
-	case "true", "yes", "1":
-		return true, nil
-	case "false", "no", "0":
-		return false, nil
-	default:
-		return false, fmt.Errorf("must be one of: true, false, yes, no, 1, 0")
-	}
-}
-
 // dedup removes duplicate strings, preserving order.
 func dedup(vals []string) []string {
 	seen := make(map[string]bool, len(vals))
@@ -786,7 +773,7 @@ func CheckWantedFieldsForProposal(existingFields map[string]any, proposedFields 
 			// Parse comma-separated values
 			merged[fieldName] = parseSetValues(value)
 		case model.FieldTypeBoolean:
-			boolVal, err := parseBoolValue(value)
+			boolVal, err := model.ParseBool(value)
 			if err == nil {
 				merged[fieldName] = boolVal
 			} else {
